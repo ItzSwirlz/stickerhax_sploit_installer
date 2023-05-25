@@ -57,15 +57,21 @@ Result read_savedata(const char* path, void** data, size_t* size)
 	disableHBLHandle();
 
 	ret = FSUSER_OpenFile(&inFileHandle, saveGameArchive, fsMakePath(PATH_ASCII, path), FS_OPEN_READ, 0);
-	if(ret){fail = -8; goto readFail;}
+	if(ret){
+		strncat(status, "read: failed to open file\n", sizeof(status)-1);
+		fail = -8; goto readFail;
+		}
 
 	FSFILE_GetSize(inFileHandle, &inFileSize);
 
-	buffer = malloc(inFileSize);
-	if(!buffer){fail = -9; goto readFail;}
+	buffer = malloc(1000000);
+	if(!buffer){
+		strncat(status, "read: failed to malloc\n", sizeof(status)-1);
+		fail = -9; goto readFail;}
 
 	ret = FSFILE_Read(inFileHandle, &bytesRead, 0, buffer, inFileSize);
-	if(ret){fail = -10; goto readFail;}
+	if(ret){
+		strncat(status, "read: failed to read file\n", sizeof(status)-1);fail = -10; goto readFail;}
 
 	FSFILE_Close(inFileHandle);
 
@@ -103,6 +109,7 @@ Result write_savedata(char* path, u8* data, u32 size)
 	ret = FSUSER_OpenArchive(&saveGameArchive, ARCHIVE_USER_SAVEDATA, pathl);
     if(R_FAILED(ret))
     {
+    	strncat(status, "failed to open archive\n", sizeof(status)-1);
         fail = -1;
         goto writeFail;
     }
@@ -115,6 +122,7 @@ Result write_savedata(char* path, u8* data, u32 size)
     ret = FSUSER_OpenFile(&file, saveGameArchive, fsMakePath(PATH_ASCII, path), FS_OPEN_CREATE | FS_OPEN_WRITE, 0);
     if(R_FAILED(ret))
     {
+    	strncat(status, "failed to open file\n", sizeof(status)-1);
         fail = -2;
         goto writeFail;
     }
@@ -123,6 +131,7 @@ Result write_savedata(char* path, u8* data, u32 size)
     ret = FSFILE_Write(file, &bytes_written, 0, data, size, FS_WRITE_FLUSH | FS_WRITE_UPDATE_TIME);
     if(R_FAILED(ret))
     {
+    	strncat(status, "failed to write to file\n", sizeof(status)-1);
         fail = -3;
         goto writeFail;
     }
@@ -130,12 +139,14 @@ Result write_savedata(char* path, u8* data, u32 size)
     ret = FSFILE_Close(file);
     if(R_FAILED(ret))
     {
+    	strncat(status, "failed to close file\n", sizeof(status)-1);
         fail = -4;
         goto writeFail;
     }
 
     ret = FSUSER_ControlArchive(saveGameArchive, ARCHIVE_ACTION_COMMIT_SAVE_DATA, NULL, 0, NULL, 0);
-    if(R_FAILED(ret)) fail = -5;
+    if(R_FAILED(ret)) {
+    	strncat(status, "failed to control(?) archive\n", sizeof(status)-1); fail = -5;}
 
     writeFail:
     FSUSER_CloseArchive(saveGameArchive);
@@ -610,7 +621,7 @@ int main()
 	int pos;
 
 	u8* payload_buf = NULL;
-	u32 payload_size = 0;
+	u32 payload_size = 1000000;
 
 	u32 cur_processid = 0;
 	u64 cur_programid = 0;
@@ -892,8 +903,8 @@ int main()
 						if(ret)
 						{
 							sprintf(status, "Failed to format savedata.\n    Error code: %08lX", ret);
-							next_state = STATE_ERROR;
-							break;
+						//	next_state = STATE_ERROR;
+					//		break;
 						}
 					}
 					if(flags_bitmask & 0x2)
