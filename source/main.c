@@ -126,75 +126,11 @@ typedef enum
 	STATE_SELECT_SLOT,
 	STATE_DISPLAY_TITLE_VERSION,
 	STATE_SELECT_FIRMWARE,
-	STATE_DOWNLOAD_PAYLOAD,
 	STATE_COMPRESS_PAYLOAD,
 	STATE_INSTALL_PAYLOAD,
 	STATE_INSTALLED_PAYLOAD,
 	STATE_ERROR,
 }state_t;
-
-Result http_getredirection(char *url, char *out, u32 out_size, char *useragent)
-{
-	Result ret=0;
-	httpcContext context;
-
-	ret = httpcOpenContext(&context, HTTPC_METHOD_GET, url, 0);
-	if(ret!=0)return ret;
-
-
-	ret = httpcAddRequestHeaderField(&context, "User-Agent", useragent);
-	if(!ret) ret = httpcBeginRequest(&context);
-	if(ret!=0)
-	{
-		httpcCloseContext(&context);
-		return ret;
-	}
-
-	ret = httpcGetResponseHeader(&context, "Location", out, out_size);
-
-	httpcCloseContext(&context);
-
-	return ret;
-}
-
-Result http_download(httpcContext *context, u8** out_buf, u32* out_size, char *useragent)
-{
-	Result ret=0;
-	u32 statuscode=0;
-	u32 contentsize=0;
-	u8 *buf;
-
-	ret = httpcAddRequestHeaderField(context, "User-Agent", useragent);
-	if(ret!=0)return ret;
-
-	ret = httpcBeginRequest(context);
-	if(ret!=0)return ret;
-
-	ret = httpcGetResponseStatusCode(context, &statuscode);
-	if(ret!=0)return ret;
-
-	if(statuscode!=200)return -2;
-
-	ret=httpcGetDownloadSizeState(context, NULL, &contentsize);
-	if(ret!=0)return ret;
-
-	buf = (u8*)malloc(contentsize);
-	if(buf==NULL)return -1;
-	memset(buf, 0, contentsize);
-
-	ret = httpcDownloadData(context, buf, contentsize, NULL);
-	if(ret!=0)
-	{
-		free(buf);
-		return ret;
-	}
-
-	if(out_size)*out_size = contentsize;
-	if(out_buf)*out_buf = buf;
-	else free(buf);
-
-	return 0;
-}
 
 void remove_newline(char *line)
 {
@@ -617,7 +553,6 @@ Result parsecopy_saveconfig(char *versiondir, u32 type, int selected_slot)
 
 int main()
 {
-	httpcInit(0);
 
 	gfxInitDefault();
 	gfxSet3D(false);
@@ -706,9 +641,6 @@ int main()
 					break;
 				case STATE_SELECT_FIRMWARE:
 					strncat(top_text, "\n\n Please select your console's firmware version.\nOnly select NEW 3DS if you own a New 3DS (XL).\nD-Pad to select, A to continue.\n", sizeof(top_text)-1);
-					break;
-				case STATE_DOWNLOAD_PAYLOAD:
-					snprintf(top_text, sizeof(top_text)-1, "%s\n\n\n Downloading payload...\n", top_text);
 					break;
 				case STATE_COMPRESS_PAYLOAD:
 					strncat(top_text, " Processing payload...\n", sizeof(top_text)-1);
@@ -925,8 +857,6 @@ int main()
 					if(firmware_version[firmware_selected_value] < 0) firmware_version[firmware_selected_value] = 0;
 					if(firmware_version[firmware_selected_value] >= firmware_maxnum) firmware_version[firmware_selected_value] = firmware_maxnum - 1;
 
-					if(hidKeysDown() & KEY_A)next_state = STATE_DOWNLOAD_PAYLOAD;
-
 					int offset = 26;
 					if(firmware_selected_value)
 					{
@@ -942,62 +872,6 @@ int main()
 					printf((firmware_version[firmware_selected_value] < firmware_maxnum - 1) ? "%*s^%*s" : "%*s-%*s", offset, " ", 50 - offset - 1, " ");
 					printf("      Selected firmware : %s %d-%d-%d-%d %s  \n", firmware_version[0]?"New3DS":"Old3DS", firmware_version[1], firmware_version[2], firmware_version[3], firmware_version[4], regionids_table[firmware_version[5]]);
 					printf((firmware_version[firmware_selected_value] > 0) ? "%*sv%*s" : "%*s-%*s", offset, " ", 50 - offset - 1, " ");
-				}
-				break;
-			case STATE_DOWNLOAD_PAYLOAD:
-				{
-					httpcContext context;
-					static char in_url[512];
-					static char out_url[512];
-					static char tmpstr[256];
-
-					memset(in_url, 0, sizeof(in_url));
-					memset(out_url, 0, sizeof(out_url));
-					memset(tmpstr, 0, sizeof(tmpstr));
-
-					snprintf(in_url, sizeof(in_url)-1, "http://smea.mtheall.com/get_payload.php?version=%s-%d-%d-%d-%d-%s", firmware_version[0]?"NEW":"OLD", firmware_version[1], firmware_version[2], firmware_version[3], firmware_version[4], regionids_table[firmware_version[5]]);
-
-					if(!sysinfo_overridden && allow_use_menuver)//Send the actual Home Menu title-version in the request URL, when the user didn't override the system-info. This is needed for when the title-version is different from what it should be with the current CVer. With this the server script will determine the Home Menu portion of the output URL using the input menuver instead of the system-version.
-					{
-						snprintf(tmpstr, sizeof(tmpstr)-1, "&menuver=%u", menu_title_entry.version);
-						strncat(in_url, tmpstr, sizeof(in_url)-1);
-					}
-
-					memset(useragent, 0, sizeof(useragent));
-					snprintf(useragent, sizeof(useragent)-1, "sploit_installer-%s", exploitname);
-
-					Result ret = http_getredirection(in_url, out_url, 512, useragent);
-					if(ret)
-					{
-						sprintf(status, "Failed to grab payload url\n    Error code : %08X", (unsigned int)ret);
-						next_state = STATE_ERROR;
-						break;
-					}
-
-					ret = httpcOpenContext(&context, HTTPC_METHOD_GET, out_url, 0);
-					if(ret)
-					{
-						sprintf(status, "Failed to open http context\n    Error code : %08X", (unsigned int)ret);
-						next_state = STATE_ERROR;
-						break;
-					}
-
-					ret = http_download(&context, &payload_buf, &payload_size, useragent);
-					if(ret)
-					{
-						sprintf(status, "Failed to download payload\n    Error code : %08X", (unsigned int)ret);
-						next_state = STATE_ERROR;
-						break;
-					}
-
-					if(flags_bitmask & 0x1)
-					{
-						next_state = STATE_COMPRESS_PAYLOAD;
-					}
-					else
-					{
-						next_state = STATE_INSTALL_PAYLOAD;
-					}
 				}
 				break;
 			case STATE_COMPRESS_PAYLOAD:
@@ -1111,6 +985,5 @@ int main()
 	filesystemExit();
 
 	gfxExit();
-	httpcExit();
 	return 0;
 }
