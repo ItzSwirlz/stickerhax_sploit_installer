@@ -97,25 +97,53 @@ Result write_savedata(char* path, u8* data, u32 size)
 	int fail = 0;
 
 	disableHBLHandle();
+	u32 pathData[3] = {MEDIATYPE_SD, 0x000a5e00, 0x00040000};
+	const FS_Path pathl = {PATH_BINARY, 12, (const void*)pathData};
 
-	ret = FSUSER_OpenFile(&outFileHandle, saveGameArchive, fsMakePath(PATH_ASCII, path), FS_OPEN_CREATE | FS_OPEN_WRITE, 0);
-	if(ret){fail = -8; goto writeFail;}
+	ret = FSUSER_OpenArchive(&saveGameArchive, ARCHIVE_USER_SAVEDATA, pathl);
+    if(R_FAILED(ret))
+    {
+        fail = -1;
+        goto writeFail;
+    }
 
-	ret = FSFILE_Write(outFileHandle, &bytesWritten, 0x0, data, size, 0x10001);
-	if(ret){fail = -9; goto writeFail;}
+    // delete file
+    FSUSER_DeleteFile(saveGameArchive, fsMakePath(PATH_ASCII, path));
+    FSUSER_ControlArchive(saveGameArchive, ARCHIVE_ACTION_COMMIT_SAVE_DATA, NULL, 0, NULL, 0);
 
-	ret = FSFILE_Close(outFileHandle);
-	if(ret){fail = -10; goto writeFail;}
+    Handle file = 0;
+    ret = FSUSER_OpenFile(&file, saveGameArchive, fsMakePath(PATH_ASCII, path), FS_OPEN_CREATE | FS_OPEN_WRITE, 0);
+    if(R_FAILED(ret))
+    {
+        fail = -2;
+        goto writeFail;
+    }
 
-	ret = FSUSER_ControlArchive(saveGameArchive, ARCHIVE_ACTION_COMMIT_SAVE_DATA, NULL, 0, NULL, 0);
+    u32 bytes_written = 0;
+    ret = FSFILE_Write(file, &bytes_written, 0, data, size, FS_WRITE_FLUSH | FS_WRITE_UPDATE_TIME);
+    if(R_FAILED(ret))
+    {
+        fail = -3;
+        goto writeFail;
+    }
 
-	writeFail:
-	if(fail)sprintf(status, "failed to write to file : %d\n     %08X %08X", fail, (unsigned int)ret, (unsigned int)bytesWritten);
-	else sprintf(status, "successfully wrote to file !\n     %08X               ", (unsigned int)bytesWritten);
+    ret = FSFILE_Close(file);
+    if(R_FAILED(ret))
+    {
+        fail = -4;
+        goto writeFail;
+    }
 
-	enableHBLHandle();
+    ret = FSUSER_ControlArchive(saveGameArchive, ARCHIVE_ACTION_COMMIT_SAVE_DATA, NULL, 0, NULL, 0);
+    if(R_FAILED(ret)) fail = -5;
 
-	return ret;
+    writeFail:
+    FSUSER_CloseArchive(saveGameArchive);
+    fsEndUseSession();
+    if(fail) sprintf(status, "An error occured! Failed to write to file: %d\n     %08lX %08lX", fail, ret, bytes_written);
+    else sprintf(status, "Successfully wrote to file!\n     %08lX               ", bytes_written);
+
+    return ret;
 }
 
 typedef enum
@@ -124,8 +152,7 @@ typedef enum
 	STATE_INITIALIZE,
 	STATE_INITIAL,
 	STATE_SELECT_SLOT,
-	STATE_DISPLAY_TITLE_VERSION,
-	STATE_SELECT_FIRMWARE,
+	STATE_LOAD_PAYLOAD,
 	STATE_COMPRESS_PAYLOAD,
 	STATE_INSTALL_PAYLOAD,
 	STATE_INSTALLED_PAYLOAD,
@@ -604,8 +631,8 @@ int main()
 
 	unsigned int flags_bitmask = 0;
 
-	char exploitname[64];
-	char titlename[64];
+	char exploitname[64] = "stickerhax";
+	char titlename[64] = "Sticker-Star";
 	char useragent[64];
 
 	memset(firmware_version, 0, sizeof(firmware_version));
@@ -636,11 +663,8 @@ int main()
 				case STATE_SELECT_SLOT:
 					snprintf(top_text_tmp, sizeof(top_text_tmp)-1, " Please select the savegame slot %s will be\ninstalled to. D-Pad to select, A to continue.\n", exploitname);
 					break;
-				case STATE_DISPLAY_TITLE_VERSION:
-					snprintf(top_text_tmp, sizeof(top_text_tmp)-1, "\n\n The auto-detected version of %s\nfor your system will now be displayed.\n", titlename);
-					break;
-				case STATE_SELECT_FIRMWARE:
-					strncat(top_text, "\n\n Please select your console's firmware version.\nOnly select NEW 3DS if you own a New 3DS (XL).\nD-Pad to select, A to continue.\n", sizeof(top_text)-1);
+				case STATE_LOAD_PAYLOAD:
+					strncat(top_text, " Reading payload... \n", sizeof(top_text)-1);
 					break;
 				case STATE_COMPRESS_PAYLOAD:
 					strncat(top_text, " Processing payload...\n", sizeof(top_text)-1);
@@ -764,39 +788,39 @@ int main()
 						break;
 					}
 
-					ret = load_exploitlist_config("romfs:/exploitlist_config", &cur_programid, exploitname, titlename, &flags_bitmask);
-					if(ret)
-					{
-						snprintf(status, sizeof(status)-1, "Failed to select the exploit.\n    Error code : %08X", (unsigned int)ret);
-						if(ret==1)strncat(status, " Failed to\nopen the config file in romfs.", sizeof(status)-1);
-						if(ret==2)strncat(status, " The title this sploit_installer is running under\nis not supported.", sizeof(status)-1);
-						next_state = STATE_ERROR;
-						break;
-					}
+					//ret = load_exploitconfig(exploitname, &cur_programid, cur_productinfo.remasterVersion, updatetitle_entry_valid ? &title_entry.version:NULL, &selected_remaster_version);
+					// if(ret)
+					// {
+					// 	snprintf(status, sizeof(status)-1, "Failed to find your version of\n%s in the config / config loading failed.\n    Error code : %08X", titlename, (unsigned int)ret);
+					// 	if(ret==1)strncat(status, " Failed to\nopen the config file in romfs.", sizeof(status)-1);
+					// 	if(ret==2 || ret==4)strncat(status, " The romfs config file is invalid.", sizeof(status)-1);
+					// 	if(ret==3)
+					// 	{
+					// 		snprintf(status, sizeof(status)-1, "this update-title version(v%u) of %s is not compatible with %s, sorry\n", title_entry.version, titlename, exploitname);
+					// 		next_state = STATE_ERROR;
+					// 		break;
+					// 	}
+					// 	if(ret==5)
+					// 	{
+					// 		snprintf(status, sizeof(status)-1, "this remaster-version(%04X) of %s is not compatible with %s, sorry\n", (unsigned int)selected_remaster_version, titlename, exploitname);
+					// 		next_state = STATE_ERROR;
+					// 		break;
+					// 	}
 
-					ret = load_exploitconfig(exploitname, &cur_programid, cur_productinfo.remasterVersion, updatetitle_entry_valid ? &title_entry.version:NULL, &selected_remaster_version);
-					if(ret)
-					{
-						snprintf(status, sizeof(status)-1, "Failed to find your version of\n%s in the config / config loading failed.\n    Error code : %08X", titlename, (unsigned int)ret);
-						if(ret==1)strncat(status, " Failed to\nopen the config file in romfs.", sizeof(status)-1);
-						if(ret==2 || ret==4)strncat(status, " The romfs config file is invalid.", sizeof(status)-1);
-						if(ret==3)
-						{
-							snprintf(status, sizeof(status)-1, "this update-title version(v%u) of %s is not compatible with %s, sorry\n", title_entry.version, titlename, exploitname);
-							next_state = STATE_ERROR;
-							break;
-						}
-						if(ret==5)
-						{
-							snprintf(status, sizeof(status)-1, "this remaster-version(%04X) of %s is not compatible with %s, sorry\n", (unsigned int)selected_remaster_version, titlename, exploitname);
-							next_state = STATE_ERROR;
-							break;
-						}
-
-						next_state = STATE_ERROR;
-						break;
-					}
-
+					// 	next_state = STATE_ERROR;
+				//		break;
+					//}
+					flags_bitmask = 0x4;
+					exploit_titleconfig.saveformat.enabled = true;
+					exploit_titleconfig.saveformat.directories = 0;
+					exploit_titleconfig.saveformat.files = 4;
+					exploit_titleconfig.saveformat.directoryBuckets = 3;
+					exploit_titleconfig.saveformat.fileBuckets = 5;
+					exploit_titleconfig.saveformat.duplicateData = 0;
+					
+					sprintf(exploit_titleconfig.versiondir, "romfs:/stickerhax/00040000000a5e00/v1.0");
+					sprintf(exploit_titleconfig.displayversion, "1.0");
+					
 					ret = amInit();
 					if(ret==0)ret = APT_GetAppletInfo(APPID_HOMEMENU, &menu_programid, NULL, NULL, NULL, NULL);
 					if(ret==0)ret = AM_GetTitleInfo(MEDIATYPE_NAND, 1, &menu_programid, &menu_title_entry);
@@ -814,7 +838,7 @@ int main()
 				{
 					if(hidKeysDown() & KEY_UP)selected_slot++;
 					if(hidKeysDown() & KEY_DOWN)selected_slot--;
-					if(hidKeysDown() & KEY_A)next_state = STATE_DISPLAY_TITLE_VERSION;
+					if(hidKeysDown() & KEY_A)next_state = STATE_LOAD_PAYLOAD;
 
 					if(selected_slot < 0) selected_slot = 0;
 					if(selected_slot > 2) selected_slot = 2;
@@ -824,55 +848,29 @@ int main()
 					printf((!selected_slot) ? "                                             \n" : "                                            v\n");
 				}
 				break;
-			case STATE_DISPLAY_TITLE_VERSION:
-				{
-					if(hidKeysDown() & KEY_A)next_state = STATE_SELECT_FIRMWARE;
+			case STATE_LOAD_PAYLOAD:
+				// Gruetzig's code in basehaxx_sploit_installer
+				FILE* file = fopen("sdmc:/payload.bin", "r");
+                sprintf(top_text_tmp, "Using payload from SD");
+                if (file == NULL) {
+                    sprintf(status, "\nFailed to open otherapp payload\n");
+                    next_state = STATE_ERROR;
+                    break;
+                }
+                fseek(file, 0, SEEK_END);
+                payload_size = ftell(file);
+                fseek(file, 0, SEEK_SET);
 
-					printf("           Auto-detected %s version : %s  \n    Press A to continue.", titlename, exploit_titleconfig.displayversion);
-				}
-				break;
-			case STATE_SELECT_FIRMWARE:
-				{
-					if(hidKeysDown() & KEY_LEFT)firmware_selected_value--;
-					if(hidKeysDown() & KEY_RIGHT)firmware_selected_value++;
-
-					if(firmware_selected_value < 0) firmware_selected_value = 0;
-					if(firmware_selected_value > 5) firmware_selected_value = 5;
-
-					if(hidKeysDown() & KEY_UP)
-					{
-						firmware_version[firmware_selected_value]++;
-						sysinfo_overridden = true;
-					}
-					if(hidKeysDown() & KEY_DOWN)
-					{
-						firmware_version[firmware_selected_value]--;
-						sysinfo_overridden = true;
-					}
-
-					firmware_maxnum = 256;
-					if(firmware_selected_value==0)firmware_maxnum = 2;
-					if(firmware_selected_value==5)firmware_maxnum = 7;
-
-					if(firmware_version[firmware_selected_value] < 0) firmware_version[firmware_selected_value] = 0;
-					if(firmware_version[firmware_selected_value] >= firmware_maxnum) firmware_version[firmware_selected_value] = firmware_maxnum - 1;
-
-					int offset = 26;
-					if(firmware_selected_value)
-					{
-						offset+= 7;
-
-						for(pos=1; pos<firmware_selected_value; pos++)
-						{
-							offset+=2;
-							if(firmware_version[pos] >= 10)offset++;
-						}
-					}
-
-					printf((firmware_version[firmware_selected_value] < firmware_maxnum - 1) ? "%*s^%*s" : "%*s-%*s", offset, " ", 50 - offset - 1, " ");
-					printf("      Selected firmware : %s %d-%d-%d-%d %s  \n", firmware_version[0]?"New3DS":"Old3DS", firmware_version[1], firmware_version[2], firmware_version[3], firmware_version[4], regionids_table[firmware_version[5]]);
-					printf((firmware_version[firmware_selected_value] > 0) ? "%*sv%*s" : "%*s-%*s", offset, " ", 50 - offset - 1, " ");
-				}
+                payload_buf = malloc(payload_size);
+                if(!payload_buf) {
+                    next_state = STATE_ERROR;
+                    fclose(file);
+                    break;
+                }
+ 
+                fread(payload_buf, payload_size, 1, file);
+                fclose(file);
+                next_state = STATE_COMPRESS_PAYLOAD;;
 				break;
 			case STATE_COMPRESS_PAYLOAD:
 				payload_buf = BLZ_Code(payload_buf, payload_size, (unsigned int*)&payload_size, BLZ_NORMAL);
@@ -882,8 +880,11 @@ int main()
 				{
 					if(exploit_titleconfig.saveformat.enabled)//This block is based on code from salt_sploit_installer.
 					{
+	u32 pathData[3] = {MEDIATYPE_SD, 0x000A5E00, 0x00040000};
+	const FS_Path pathl = {PATH_BINARY, 12, (const void*)pathData};
+						
 						disableHBLHandle();
-						Result ret = FSUSER_FormatSaveData(ARCHIVE_SAVEDATA, (FS_Path){PATH_EMPTY, 1, (u8*)""}, 0x200, exploit_titleconfig.saveformat.directories, exploit_titleconfig.saveformat.files, exploit_titleconfig.saveformat.directoryBuckets, exploit_titleconfig.saveformat.fileBuckets, exploit_titleconfig.saveformat.duplicateData);
+						Result ret = FSUSER_FormatSaveData(ARCHIVE_SAVEDATA, (FS_Path)pathl, 0x200, exploit_titleconfig.saveformat.directories, exploit_titleconfig.saveformat.files, exploit_titleconfig.saveformat.directoryBuckets, exploit_titleconfig.saveformat.fileBuckets, exploit_titleconfig.saveformat.duplicateData);
 						FSUSER_ControlArchive(saveGameArchive, ARCHIVE_ACTION_COMMIT_SAVE_DATA, NULL, 0, NULL, 0);
 						enableHBLHandle();
 						filesystemExit();

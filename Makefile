@@ -34,9 +34,9 @@ DATA		:=	data
 INCLUDES	:=	include
 ROMFS	:=	romfs
 
-APP_TITLE       := stickerhax installer
-APP_DESCRIPTION := Use this to install stickerhax to your system.
-APP_AUTHOR      := smea and yellows8
+APP_TITLE       := stickerhax sploit installer
+APP_DESCRIPTION := Use this to install stickerhax to the gamesave.
+APP_AUTHOR      := smea and yellows8, ItzSwirlz
 
 #---------------------------------------------------------------------------------
 # options for code generation
@@ -47,7 +47,7 @@ CFLAGS	:=	-g -Wall -Wextra -O2 -mword-relocations \
 			-fomit-frame-pointer -ffast-math \
 			$(ARCH)
 
-CFLAGS	+=	$(INCLUDE) -DARM11 -D_3DS
+CFLAGS	+=	$(INCLUDE) -D__3DS__
 
 CXXFLAGS	:= $(CFLAGS) -fno-rtti -fno-exceptions -std=gnu++11
 
