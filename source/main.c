@@ -631,7 +631,7 @@ int main()
 					strncat(top_text, " Initializing... You may press START at any time\nto return to menu.\n", sizeof(top_text)-1);
 					break;
 				case STATE_INITIAL:
-					strncat(top_text, " Welcome to the sploit_installer ! Please proceedwith caution, as you might lose data if you don't.\n                            Press A to continue.\n\n", sizeof(top_text)-1);
+					strncat(top_text, " Welcome to the stickerhax_sploit_installer ! Please proceedwith caution, as you might lose data if you don't.\n                            Press A to continue.\n\n", sizeof(top_text)-1);
 					break;
 				case STATE_SELECT_SLOT:
 					snprintf(top_text_tmp, sizeof(top_text_tmp)-1, " Please select the savegame slot %s will be\ninstalled to. D-Pad to select, A to continue.\n", exploitname);

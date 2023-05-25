@@ -34,8 +34,8 @@ DATA		:=	data
 INCLUDES	:=	include
 ROMFS	:=	romfs
 
-APP_TITLE       := ironhax installer
-APP_DESCRIPTION := Use this to install ironhax to your system. Requires    IronFall and an internet connection.
+APP_TITLE       := stickerhax installer
+APP_DESCRIPTION := Use this to install stickerhax to your system.
 APP_AUTHOR      := smea and yellows8
 
 #---------------------------------------------------------------------------------
