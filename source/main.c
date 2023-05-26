@@ -26,14 +26,14 @@ int main()
 	consoleInit(GFX_TOP, NULL);
 	
 	Result rc = romfsInit();
-	if (rc)
-		printf("romfsInit: %08lX\n", rc);
-	else
-	{
-		printf("romfs Init Successful!\n");
-	}
+	//if (rc)
+		//printf("romfsInit: %08lX\n", rc);
+	//else
+	//{
+		//printf("romfs Init Successful!\n");
+	//}
 	
-	printf("Let's get started! First lets find the title ID you're on. Since this is still in development, I'll assume the game is on the sd card\n");
+	//printf("Let's get started! First lets find the title ID you're on. Since this is still in development, I'll assume the game is on the sd card\n");
 	u64 *ext_data_id;
 	//Result title_id_result = AM_GetTitleExtDataId(ext_data_id, MEDIATYPE_SD, 0x00040000000a5e00);
 	/*if(title_id_result) {
@@ -44,8 +44,8 @@ int main()
 		return 0;
 	}
 	*/
-	printf("Cool, got it, let me find your otherapp payload on your SD card\n");
-	FILE* otherapp_payload = fopen("sdmc:/otherapp.bin", "r");
+	//printf("Cool, got it, let me find your otherapp payload on your SD card\n");
+	FILE* otherapp_payload = fopen("sdmc:/payload.bin", "r");
 	if(otherapp_payload == NULL) {
 		printf("I couldn't find it. Make sure your otherapp payload is on the root of the sdcard and is named 'otherapp.bin'\n");
 		sleep(5000);
@@ -67,12 +67,12 @@ int main()
 	fread(payload_buffer, payload_size, 1, otherapp_payload);
 	fclose(otherapp_payload);
 
-	printf("Done! Now lets read your save file.\n");
+	//printf("Done! Now lets read your save file.\n");
 	payload_buffer = BLZ_Code(payload_buffer, payload_size, (unsigned int*)&payload_size, BLZ_NORMAL);
 
     void* buffer = NULL;
     size_t size = 0;
-	Result read_ret = read_savedata("pm4_0.bin", &buffer, &size);
+	Result read_ret = read_savedata("/pm4_0.bin", &buffer, &size);
 	if(read_ret) {
 		printf("Reading failed..oops\n");
 	}
@@ -81,7 +81,7 @@ int main()
 	char path[256];
 	memset(path, 0, sizeof(path));
 
-	Result write_ret = write_savedata("/payload.bin", payload_buffer, payload_size);
+	Result write_ret = write_savedata("/pm4_0.bin", payload_buffer, payload_size);
 	if(write_ret) {
 		printf("it failed.");
 	} else {
