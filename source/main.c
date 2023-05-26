@@ -62,6 +62,9 @@ int main()
     void* buffer = NULL;
     size_t size = 0;
 	Result read_ret = read_savedata("pm4_0.bin", &buffer, &size);
+	if(read_ret) {
+		printf("Reading failed..oops\n");
+	}
 	
 	u32 out_size = 0;
 	char path[256];

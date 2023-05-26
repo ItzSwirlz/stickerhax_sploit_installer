@@ -15,21 +15,26 @@ Result read_savedata(const char* path, void** data, size_t* size) {
     
     // First, open the archive
     ret = FSUSER_OpenArchive(&save_archive, ARCHIVE_USER_SAVEDATA, pathl);
+    if(ret) printf("failed to open archive\n");
     
     // Now, open the file
     ret = FSUSER_OpenFile(&file, save_archive, fsMakePath(PATH_ASCII, path), FS_OPEN_READ, 0);
+     if(ret) printf("failed to open file\n");
 
     // Create a buffer to read it
     u64 file_size = 0;
     ret = FSFILE_GetSize(file, &file_size);
+     if(ret) printf("failed to get size\n");
     buffer = malloc(file_size);
 
     // Read the file
     u32 bytes_read = 0;
     ret = FSFILE_Read(file, &bytes_read, 0, buffer, file_size);
+     if(ret) printf("failed to read file\n");
 
     // Close the file
     ret = FSFILE_Close(file);
+     if(ret) printf("failed to close file\n");
     return ret;
 }
 
@@ -44,19 +49,26 @@ Result write_savedata(const char* path, const void* data, size_t size) {
     const FS_Path pathl = {PATH_BINARY, 12, (const void*)pathData};
 
     ret = FSUSER_OpenArchive(&save_archive, ARCHIVE_USER_SAVEDATA, pathl);
+     if(ret) printf("failed to open archive\n");
 
     // delete file
     FSUSER_DeleteFile(save_archive, fsMakePath(PATH_ASCII, path));
+     if(ret) printf("failed to delete save archive\n");
     FSUSER_ControlArchive(save_archive, ARCHIVE_ACTION_COMMIT_SAVE_DATA, NULL, 0, NULL, 0);
+     if(ret) printf("failed to control archive\n");
 
     Handle file = 0;
     ret = FSUSER_OpenFile(&file, save_archive, fsMakePath(PATH_ASCII, path), FS_OPEN_CREATE | FS_OPEN_WRITE, 0);
+     if(ret) printf("failed to open file\n");
 
     u32 bytes_written = 0;
     ret = FSFILE_Write(file, &bytes_written, 0, data, size, FS_WRITE_FLUSH | FS_WRITE_UPDATE_TIME);
+     if(ret) printf("failed to write file\n");
 
     ret = FSFILE_Close(file);
+     if(ret) printf("failed to close file\n");
     ret = FSUSER_ControlArchive(save_archive, ARCHIVE_ACTION_COMMIT_SAVE_DATA, NULL, 0, NULL, 0);
+     if(ret) printf("failed to control archive 2nd time\n");
 
     return ret;
 }
