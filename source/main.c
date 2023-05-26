@@ -61,7 +61,7 @@ int main()
 
     void* buffer = NULL;
     size_t size = 0;
-	Result read_ret = read_savedata("/main", &buffer, &size);
+	Result read_ret = read_savedata("pm4_@!d1.bin", &buffer, &size);
 	
 	u32 out_size = 0;
 	char path[256];
