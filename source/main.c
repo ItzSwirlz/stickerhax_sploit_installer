@@ -6,11 +6,22 @@
 #include "savedata.h"
 #include "blz.h"
 
+
 int main()
 {
 	u8* payload_buffer = NULL;
     u32 payload_size = 0;
 	
+	fsInit();
+	Result ret_fs = srvGetServiceHandleDirect(&save_session, "fs:USER");
+
+	if(R_SUCCEEDED(ret_fs))
+        ret_fs = FSUSER_Initialize(save_session);
+
+    if(R_FAILED(ret_fs))
+        printf("An error occured! Failed to get a fs:USER session.\n    Error code: %08lX", ret_fs);
+
+
 	gfxInitDefault();
 	consoleInit(GFX_TOP, NULL);
 	

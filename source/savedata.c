@@ -1,6 +1,7 @@
 #include <3ds.h>
 #include <stdlib.h>
-FS_Archive *save_archive;
+FS_Archive save_archive;
+Handle save_session;
 
 Result read_savedata(const char* path, void** data, size_t* size) {
     if(!path || !data || !size) return -1;
@@ -9,22 +10,22 @@ Result read_savedata(const char* path, void** data, size_t* size) {
     Result ret = -1;
     void* buffer = NULL;
     
-    fsUseSession(0);
+    fsUseSession(save_session);
     u32 pathData[3] = { MEDIATYPE_SD, 0x000a5e00, 0x00040000};
     const FS_Path pathl = {PATH_BINARY, 12, (const void*)pathData};
     
     // First, open the archive
     ret = FSUSER_OpenArchive(&save_archive, ARCHIVE_USER_SAVEDATA, pathl);
-    if(ret) printf("failed to open archive\n");
+    if(ret) printf("failed to open archive %d\n", ret);
     
     // Now, open the file
     ret = FSUSER_OpenFile(&file, save_archive, fsMakePath(PATH_ASCII, path), FS_OPEN_READ, 0);
-     if(ret) printf("failed to open file\n");
+     if(ret) printf("failed to open file%d\n", ret);
 
     // Create a buffer to read it
     u64 file_size = 0;
     ret = FSFILE_GetSize(file, &file_size);
-     if(ret) printf("failed to get size\n");
+     if(ret) printf("failed to get size%d\n", ret);
     buffer = malloc(file_size);
 
     // Read the file
@@ -44,7 +45,7 @@ Result write_savedata(const char* path, const void* data, size_t size) {
     Result ret = -1;
     int fail = 0;
     
-    fsUseSession(0);
+    fsUseSession(save_session);
     u32 pathData[3] = { MEDIATYPE_SD, 0x000a5e00, 0x00040000};
     const FS_Path pathl = {PATH_BINARY, 12, (const void*)pathData};
 
