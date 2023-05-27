@@ -15,7 +15,7 @@ Result read_savedata(const char* path, void** data, size_t* size) {
     const FS_Path pathl = {PATH_BINARY, 12, (const void*)pathData};
     
     // First, open the archive
-    ret = FSUSER_OpenArchive(&save_archive, ARCHIVE_USER_SAVEDATA, pathl);
+    ret = FSUSER_OpenArchive(&save_archive, ARCHIVE_SAVEDATA, pathl);
     if(ret) printf("failed to open archive %08lX\n", ret);
     
     // Now, open the file
@@ -31,7 +31,7 @@ Result read_savedata(const char* path, void** data, size_t* size) {
     // Read the file
     u32 bytes_read = 0;
     ret = FSFILE_Read(file, &bytes_read, 0, buffer, file_size);
-     if(ret) printf("failed to read file\n");
+     if(ret) printf("failed to read file %08lX\n", ret);
 
     // Close the file
     ret = FSFILE_Close(file);
@@ -51,11 +51,11 @@ Result write_savedata(const char* path, const void* data, size_t size) {
     u32 pathData[3] = { MEDIATYPE_SD, 0x000a5e00, 0x00040000};
     const FS_Path pathl = {PATH_BINARY, 12, (const void*)pathData};
 
-    ret = FSUSER_OpenArchive(&save_archive, ARCHIVE_USER_SAVEDATA, pathl);
+    ret = FSUSER_OpenArchive(&save_archive, ARCHIVE_SAVEDATA, pathl);
      if(ret) printf("failed to open archive%08lX\n", ret);
 
     // delete file
-    FSUSER_DeleteFile(save_archive, fsMakePath(PATH_ASCII, path));
+    FSUSER_DeleteFile(save_archive, fsMakePath(PATH_ASCII, "/payload.bin"));
      if(ret) printf("failed to delete save archive%08lX\n", ret);
     FSUSER_ControlArchive(save_archive, ARCHIVE_ACTION_COMMIT_SAVE_DATA, NULL, 0, NULL, 0);
      if(ret) printf("failed to control archive%08lX\n", ret);
