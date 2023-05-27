@@ -15,7 +15,7 @@ Result read_savedata(const char* path, void** data, size_t* size) {
     const FS_Path pathl = {PATH_BINARY, 12, (const void*)pathData};
     
     // First, open the archive
-    ret = FSUSER_OpenArchive(&save_archive, ARCHIVE_SAVEDATA, pathl);
+    ret = FSUSER_OpenArchive(&save_archive, ARCHIVE_USER_SAVEDATA, pathl);
     if(ret) printf("failed to open archive %08lX\n", ret);
     
     // Now, open the file
@@ -51,7 +51,7 @@ Result write_savedata(const char* path, const void* data, size_t size) {
     u32 pathData[3] = { MEDIATYPE_SD, 0x000a5e00, 0x00040000};
     const FS_Path pathl = {PATH_BINARY, 12, (const void*)pathData};
 
-    ret = FSUSER_OpenArchive(&save_archive, ARCHIVE_SAVEDATA, pathl);
+    ret = FSUSER_OpenArchive(&save_archive, ARCHIVE_USER_SAVEDATA, pathl);
      if(ret) printf("failed to open archive%08lX\n", ret);
 
     // delete file
